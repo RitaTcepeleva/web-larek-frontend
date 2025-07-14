@@ -8,7 +8,7 @@ export interface IProductItem {
     image: string;
     title: string;
     category: ProductCategory;
-    price: number;
+    price: number | null;
     inBusket: boolean;
 }
 

@@ -54,7 +54,7 @@ interface IProductItem {
     image: string;
     title: string;
     category: ProductCategory;
-    price: number;
+    price: number | null;
     inBusket: boolean;
 }
 ```
@@ -202,11 +202,10 @@ constructor(data: Partial<T>, protected events: IEvents)
 - `_address: string;` - адрес доставки
 - `_email: string;` - емаил
 - `_phone: string;` - телефон
-- `_items: string[];` - айдишники товаров в заказе
-- `_total: number;` - итоговая сумма заказа
 
 Так же класс предоставляет несколько методов для взаимодействия с этими данными
 - `checkValidation(data: Record<keyof IOrderForm, string>): boolean;` - роверяет объект с данными заказа на валидность
+- `getReadyOrder(): IOrder;` - метод, который получает из корзины коллекцию товаров для покупки и суммарную стоимость, объединяет это с данными из формы заказа и отдает готовый объект заказа
 - сеттеры и геттеры для сохранения и получения данных из полей класса
 
 #### Классы представления
