@@ -55,7 +55,7 @@ interface IProductItem {
     title: string;
     category: ProductCategory;
     price: number | null;
-    inBusket: boolean;
+    inBusket?: boolean;
 }
 ```
 
@@ -95,14 +95,19 @@ interface IOrderForm {
 }
 ```
 
-Варианты оплаты
+Содержимое ошибок для каждого из полей формы (если оно неверное)
 ```
-type PaymentMethod = 'cash' | 'card'
+export type FormErrors = Partial<Record<keyof IOrderFinal, string>>;
+```
+
+Варианты оплаты (пустое необходимо для начального отображения формы, когда не выбран ни один из способов оплаты)
+```
+type PaymentMethod = 'cash' | 'card' | ''
 ```
 
 Сам заказ состоит из данных из формы + списка товаров (уже их айдишников, а не объектов товаров) и общей их стоимости
 ```
-interface IOrder extends IOrderForm {
+interface IOrderFinal extends IOrderForm {
     items: string[];
     total: number;
 }
@@ -169,44 +174,52 @@ constructor(data: Partial<T>, protected events: IEvents)
 
 ##### Класс ProductsData
 Класс отвечает за хранение и логику работы с данными товаров, получаемыми с сервера.\
-Конструктор класса принимает инстант брокера событий.\
+Расширяет интерфейс общего класса `Model<IProductsData>`.\
 В полях класса хранятся следующие данные:
 - `_products: IProductItem[];` - массив объектов товаров
 - `_productPreview: string | null;` - id товара, выбранного для просмотра в модальном окне
-- `events: IEvents;` - экземпляр класса `EventEmitter` для инициации событий при изменении данных
 
 Так же класс предоставляет несколько методов для взаимодействия с этими данными:
 - `getProduct(productId: string): IProductItem;` - получить конкретный товар по его `id`
 - `setInBusketStatus(product: IProductItem, status: boolean): void;` - поменять значение переменной `inBusket` у переданного товара на указанный статус
 - сеттеры и геттеры для сохранения и получения данных из полей класса
 
-##### Класс Busket
+##### Класс Basket
 Класс отвечает за хранение и логику работы с данными товаров в корзине юзера.\
-Конструктор класса принимает инстант брокера событий.\
+Расширяет интерфейс общего класса `Model<IBasket>`.\
 В полях класса хранятся следующие данные:
-- `_products: IBasketItem[];` - массив товаров, добавленных в корзину
+- `protected _products = new Map<string, IBasketItem>();` - мапа товаров по id товара (не массив, чтобы быстро находить/удалять товары, чистить корзину)
     
 Так же класс предоставляет несколько методов для взаимодействия с этими данными:
-- `addProduct(product: IBasketItem): void;` - добавить товар в массив
-- `removeProduct(product: IBasketItem): void;` - удалить товар из массива
+- `addProduct(product: IBasketItem): void;` - добавить товар
+- `removeProduct(productId: string): void;` - удалить товар
+- `removeProductsWithoutValue(): void;` - удалить все товары, не имеющие ценности (понадобится при оформлении заказа)
 - `clear(): void;` - полностью очистить корзину (понадобится при оформлении заказа)
-- `getTotal(): void;` - посчитать суммарную стоимость товаров в корзине
-- сеттеры и геттеры для сохранения и получения данных из полей класса
+- геттер для `products`
+- геттер для `total`
 
 ##### Класс Order
 
 Класс отвечает за хранение и логику работы с данными товаров для оформления заказа. \
-Конструктор класса принимает инстант брокера событий. \
+Расширяет интерфейс общего класса `Model<IOrder>`. Интерфейс IOrder расширяет описанный выше интерфейс IOrderForm методами:
+```
+export interface IOrder extends IOrderForm {
+    checkValidation(): boolean;
+    getReadyOrder(items: string[], total: number): IOrder;
+}
+```
+
 В полях класса хранятся следующие данные:
 - `_payment: PaymentMethod;` - способ оплаты
 - `_address: string;` - адрес доставки
 - `_email: string;` - емаил
 - `_phone: string;` - телефон
+- `formErrors: FormErrors = {};` - объект для хранения текстов ошибок для каждого из заполняемых полей формы
 
 Так же класс предоставляет несколько методов для взаимодействия с этими данными
-- `checkValidation(data: Record<keyof IOrderForm, string>): boolean;` - роверяет объект с данными заказа на валидность
-- `getReadyOrder(): IOrder;` - метод, который получает из корзины коллекцию товаров для покупки и суммарную стоимость, объединяет это с данными из формы заказа и отдает готовый объект заказа
-- сеттеры и геттеры для сохранения и получения данных из полей класса
+- `checkValidation(): boolean;` - проверяет объект с данными заказа на валидность (надо, чтоб объект с ошибками был пустой)
+- `getReadyOrder(items: string[], total: number): IOrderFinal;` - метод, который получает из корзины коллекцию товаров для покупки и суммарную стоимость, объединяет это с данными из формы заказа и отдает готовый объект заказа
+- сеттеры для сохранения данных из полей формы
 
 #### Классы представления
 Все классы представления отвечают за отображение внутри контейнера (DOM-элемент) передаваемых в них данных.
@@ -291,6 +304,30 @@ constructor(container: HTMLElement, actions: ISuccessActions)
 
 Методы класса полностью наследуют `Component`.
 
+###### Класс Tabs
+Реализует отображение переключателя способов оплаты. \
+Расширяет интерфейс общего класса `Component<TabState>`. Интерфейс `TabState` создан для указания выбранной опции из доступных вариантов.
+```
+export type TabState = {
+    selected: string
+};
+```
+
+В конструктор получает HTMLElement контейнера, где должна будет проходить отрисовка, а также объект типа `TabActions`, у которого есть единственное поле - коллбек, который должен будет выполниться при выборе опции:
+```
+export type TabActions = {
+    onClick: (tab: string) => void
+}
+constructor(container: HTMLElement, actions?: TabActions)
+```
+
+Поля класса:
+- `container: HTMLElement;` - HTMLElement контейнера, где должна будет проходить отрисовка
+- `protected _buttons: HTMLButtonElement[];` - кнопки для всех доступных вариантов выбора
+
+Методы класса:
+- сеттер для `selected` - меняет класс у выбранной кнопки
+
 ##### Специальные классы (конкретно для этого проекта)
 
 ##### Класс Page
@@ -322,7 +359,7 @@ constructor(container: HTMLElement, protected events: IEvents)
 - сеттер для `catalog` - отображает каталог товаров
 - сеттер для `locked` - блокирует/разблокирует прокрутку страниц
 
-##### Класс Busket
+##### Класс BasketView
 Реализует отображение корзины. \
 Расширяет интерфейс общего класса `Component<IBasketView>`. Интерфейс `IBasketView` содержит коллекцию HTMLElement объектов товаров, добавленных в корзину, и общую стоимость корзины.
 ```
@@ -348,8 +385,26 @@ constructor(container: HTMLElement, protected events: IEvents)
 - сеттер `items` - контент корзины (либо список товаров либо пустая корзина)
 - сеттер `total` - меняет цифру на элементе итоговой суммы
 
-##### Класс Order
-Реализует отображение формы заказа. \
+##### Класс OrderView
+Реализует отображение формы заказа (первую часть с выбором оплаты и адресом). \
+Расширяет интерфейс класса `Form<IOrderForm>`.
+
+В конструктор получает HTMLElement контейнера, где должна будет проходить отрисовка, а также инстант брокера событий (экземпляр класса `EventEmitter`):
+```
+constructor(container: HTMLElement, protected events: IEvents)
+```
+
+Поля класса:
+- `container: HTMLElement;` - HTMLElement контейнера, где должна будет проходить отрисовка
+- `events: IEvents;` - брокер событий
+- `protected _payment: Tabs;` - хранит объект переключателя выбора
+
+Методы класса:
+- сеттер для `payment` - вызывает метод выбора у объекта таба
+- сеттер для `address` - сохраняет переданный текст в поле ввода адреса
+
+##### Класс ContactsView
+Реализует отображение формы заказа (вторую часть с email и телефоном). \
 Расширяет интерфейс класса `Form<IOrderForm>`.
 
 В конструктор получает HTMLElement контейнера, где должна будет проходить отрисовка, а также инстант брокера событий (экземпляр класса `EventEmitter`):
@@ -362,7 +417,8 @@ constructor(container: HTMLElement, protected events: IEvents)
 - `events: IEvents;` - брокер событий
 
 Методы класса:
-- сеттеры для полей из интерфейса (`payment`, `address`, `email`, `phone`) - проставляет значения в соответствующие поля формы
+- сеттер для `email` - сохраняет переданный текст в поле ввода email
+- сеттер для `phone` - сохраняет переданный текст в поле ввода номера телефона
 
 ##### Класс ProductCard
 Реализует отображение карточки товара. \
@@ -373,19 +429,22 @@ interface IProductCard {
     description?: string;
     image?: string;
     category?: ProductCategory;
+    index?: number;
     price: number;
+    buttonText: boolean;
 }
 ```
 
-В конструктор получает HTMLElement контейнера, где должна будет проходить отрисовка, а также `actions` - объект типа `ICardActions`, в котором должен содержаться колбек - реакция на действие с карточкой:
+В конструктор получает префикс класса всех элементов в блоке по БЭМ (чтобы их однообразно искать), HTMLElement контейнера, где должна будет проходить отрисовка, а также `actions` - объект типа `ICardActions`, в котором должен содержаться колбек - реакция на действие с карточкой:
 ```
 interface ICardActions {
     onClick: (event: MouseEvent) => void;
 }
-constructor(container: HTMLElement, actions?: ICardActions)
+constructor(protected blockName: string, container: HTMLElement, actions?: ICardActions)
 ```
 
 Поля класса:
+- `protected blockName: string;` - префикс класса всех элементов в блоке по БЭМ (чтобы их однообразно искать)
 - `container: HTMLElement;` - HTMLElement контейнера, где должна будет проходить отрисовка
 - `actions?: ICardActions;` - объект типа `ICardActions`, в котором должен содержаться колбек - реакция на действие с карточкой
 - `protected _title: HTMLElement;` - элемент названия товара `.card__title`
@@ -401,7 +460,7 @@ constructor(container: HTMLElement, actions?: ICardActions)
 Уточняет отображение карточки товара в корзине. Там есть доп поле - порядковый номер товара в корзине. \
 Расширяет интерфейс класса `ProductCard` и добавляет недостающий элемент. \
 Инпуты конструктора не меняются. \
-В поля класса добавляется `protected _busketIndex: HTMLElement;`. В методы добавляется для него сеттер.
+В поля класса добавляется `protected _index: HTMLElement;`. В методы добавляется для него сеттер.
 
 #### Слой коммуникации
 
@@ -430,6 +489,9 @@ constructor(cdn: string, baseUrl: string, options?: RequestInit)
 - `products:changed` - изменение массива карточек товаров
 - `product:changed` - изменился конкретный товар (поле `inBusket` может меняться)
 - `preview:changed` - изменение открываемой в модальном окне карточки товара
+- `basket:changed:removed` - эмитится только в случае оформления заказа во время удаления товаров с нулевой стоимостью
+- `basket:clear` - очистка корзины
+- `formErrors:change` - при заполнении заказа поменялся состав ошибок для полей формы
 
 *События, возникающие при взаимодействии пользователя с интерфейсом (генерируются классами, отвечающими за представление)*
 - `modal:open` - открытие модального окна
@@ -438,8 +500,9 @@ constructor(cdn: string, baseUrl: string, options?: RequestInit)
 - `basket:open` - открытие корзины
 - `order:open` - переход от корзины на оформление заказа
 - `order:ready` - заполненные данные заказа прошли валидацию
-- `errors:change` - при валидации формы возникли ошибки
-- `order:submit` - заказ оформлен
+- события для сообщения об изменении одного поля формы (формат: `order:address:change` или `contacts:phone:change`)
+- `order:submit` - первая часть формы заполнена
+- `contacts:submit` - заказ оформлен
 - событие по изменению конкретного поля в форме
 
 *Пример взаимодействия*

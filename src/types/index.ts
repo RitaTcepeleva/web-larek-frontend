@@ -1,6 +1,6 @@
 export type ProductCategory = 'софт-скил' | 'кнопка' | 'другое' | 'дополнительное' | 'хард-скил'
 
-export type PaymentMethod = 'cash' | 'card'
+export type PaymentMethod = 'cash' | 'card' | '';
 
 export interface IProductItem {
     id: string;
@@ -9,14 +9,14 @@ export interface IProductItem {
     title: string;
     category: ProductCategory;
     price: number | null;
-    inBusket: boolean;
+    inBusket?: boolean;
 }
 
 export interface IProductsData {
     products: IProductItem[];
     productPreview: string | null;
     getProduct(productId: string): IProductItem;
-    setInBusketStatus(product: IProductItem, status: boolean, callback: Function | null): void;
+    setInBasketStatus(productId: string, status: boolean): void;
 }
 
 export type IBasketItem = Pick<IProductItem, 'id' | 'title' | 'price' >
@@ -25,7 +25,8 @@ export interface IBasket {
     products: IBasketItem[];
     total: number;
     addProduct(product: IBasketItem): void;
-    removeProduct(product: IBasketItem): void;
+    removeProduct(productId: string): void;
+    removeProductsWithoutValue(): void;
     clear(): void;
 }
 
@@ -36,13 +37,17 @@ export interface IOrderForm {
     phone: string;
 }
 
-export interface IOrder extends IOrderForm {
+export interface IOrderFinal extends IOrderForm {
     items: string[];
     total: number;
-    checkValidation(data: Record<keyof IOrderForm, string>): boolean;
 }
 
-// export type FormErrors = Partial<Record<keyof IOrder, string>>;
+export interface IOrder extends IOrderForm {
+    checkValidation(): boolean;
+    getReadyOrder(items: string[], total: number): IOrder;
+}
+
+export type FormErrors = Partial<Record<keyof IOrderForm, string>>;
 
 export interface IOrderResult {
     id: string;
