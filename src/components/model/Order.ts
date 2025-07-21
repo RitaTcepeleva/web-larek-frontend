@@ -28,9 +28,11 @@ export class Order extends Model<IOrder> {
     checkValidation(): boolean {
         const errors: typeof this.formErrors = {};
         if(!this._payment) {
+            console.log('no payment');
             errors.payment = 'Необходимо выбрать способ оплаты';
         }
         if(!this._address) {
+            console.log('no address');
             errors.address = 'Необходимо указать адрес';
         }
         if (!this._email) {

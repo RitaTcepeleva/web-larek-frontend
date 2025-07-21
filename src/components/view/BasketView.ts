@@ -41,7 +41,6 @@ export class BasketView extends Component<IBasketView> {
     set total(total: number) {
         this.setText(this._total, total + ' синапсов');
         
-        if(total > 0) this.setDisabled(this._button, false);
-        else this.setDisabled(this._button, true);
+        this.setDisabled(this._button, total <= 0);
     }
 }

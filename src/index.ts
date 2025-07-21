@@ -180,6 +180,13 @@ events.on(/^contacts\..*:change/, setOrderField);
 
 // Открыть форму заказа
 events.on('order:open', () => {
+    // decided to clear order model to not change OrderView class (have no getters for fields and separate `checkValidation()` method for each form step to set `valid` field)
+    order.payment = '';
+    order.address = '';
+    order.phone = '';
+    order.email = '';
+
+    // render form
     modal.render({
         content: orderView.render({
             // phone: '',
@@ -217,6 +224,7 @@ events.on('contacts:submit', () => {
                 onClick: () => {
                     modal.close();
                     basket.clear();
+                    // order clear
                 }
             });
 
